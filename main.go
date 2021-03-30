@@ -13,7 +13,10 @@ func main() {
 
 	/* HANDLER FUNC */
 	// Mapping
-	http.HandleFunc("/point/add", data.AddNewFeatureHandler)
+	http.HandleFunc("/geom/add", data.AddNewGeomHandler)
+	http.HandleFunc("/geoms/get", data.GetGeomsHandler)
+	http.HandleFunc("/geom/update", data.UpdateGeomHandler)
+	http.HandleFunc("/geom/del", data.DelGeomHandler)
 	
 
 	/* START HTTP SERVER */
