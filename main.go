@@ -17,6 +17,7 @@ func main() {
 	http.HandleFunc("/geoms/get", data.GetGeomsHandler)
 	http.HandleFunc("/geom/update", data.UpdateGeomHandler)
 	http.HandleFunc("/geom/del", data.DelGeomHandler)
+	http.HandleFunc("/address/point/get", data.GetAddressPointHandler)
 	
 
 	/* START HTTP SERVER */

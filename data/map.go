@@ -26,6 +26,8 @@ type NewGeomIn struct {
 type Geom struct {
     Id int              `json:"id"`
     PointWKT string     `json:"pointWKT"`
+    Dt string           `json:"dt"`
+    Cluster string      `json:"cluster"`
 }
 
 type GeomsOut struct {
@@ -131,7 +133,7 @@ func GetGeomsHandler(w http.ResponseWriter, r *http.Request) {
     // }
     
     db.CheckDbConn()
-    closeContactsJson, err := GetGeoms(db.Conn)
+    outputJson, err := GetGeoms(db.Conn)
     if err != nil {      
         if err == pgx.ErrNoRows { 		
             util.SendStatusNotFound(w, err)
@@ -140,8 +142,8 @@ func GetGeomsHandler(w http.ResponseWriter, r *http.Request) {
         util.SendInternalServerErrorStatus(w, err)
         return 
     }
-    fmt.Printf("%s\n", closeContactsJson)
-    fmt.Fprintf(w, "%s", closeContactsJson)
+    fmt.Printf("%s\n", outputJson)
+    fmt.Fprintf(w, "%s", outputJson)
 }
 
 func UpdateGeom(conn *pgxpool.Pool, g Geom) error {
@@ -240,4 +242,81 @@ func DelGeomHandler(w http.ResponseWriter, r *http.Request) {
         util.SendInternalServerErrorStatus(w, err)
         return 
     }    
+}
+
+/*
+  Point
+*/
+func GetAddressPoint(conn *pgxpool.Pool) ([]byte, error) {
+    sql := 
+        `select id, 
+           ST_AsText(ST_SetSRID(ST_MakePoint(lon, lat),4326)) as address,
+           dt::text,
+           coalesce(cluster, '') as cluster
+           from wbk.address
+           order by dt`
+
+    rows, err := conn.Query(context.Background(), sql)
+    if err != nil {
+        return nil, err 
+    }
+
+    var geoms GeomsOut
+    for rows.Next() {
+        var id int 
+        var pointWKT string 
+        var dt string 
+        var cluster string 
+
+        err = rows.Scan(&id, &pointWKT, &dt, &cluster)
+        if err != nil {
+            return nil, err
+        }
+
+        geom := Geom{
+            Id: id,
+            PointWKT: pointWKT,
+            Dt: dt,
+            Cluster: cluster,
+        }
+        geoms.Geoms = append(geoms.Geoms, geom)
+    }
+    if len(geoms.Geoms) == 0 {
+        return nil, pgx.ErrNoRows
+    }
+    outputJson, err := json.Marshal(geoms)
+    return outputJson, err
+}
+
+func GetAddressPointHandler(w http.ResponseWriter, r *http.Request) {
+    util.SetDefaultHeader(w)
+    if (r.Method == "OPTIONS") { return }
+    fmt.Println("[GetAddressPointHandler] request received")    
+
+    // VERIFY AUTH TOKEN
+    // authToken := strings.Split(r.Header.Get("Authorization"), " ")[1]
+    // if !auth.VerifyTokenHMAC(authToken) {
+    //     util.SendUnauthorizedStatus(w)
+    //     return
+    // }   
+
+    // var wbkcase Wbkcase
+    // err := json.NewDecoder(r.Body).Decode(&wbkcase)
+    // if err != nil {
+    //     util.SendInternalServerErrorStatus(w, err)
+    //     return
+    // }
+    
+    db.CheckDbConn()
+    outputJson, err := GetAddressPoint(db.Conn)
+    if err != nil {      
+        if err == pgx.ErrNoRows { 		
+            util.SendStatusNotFound(w, err)
+			return 
+		}   
+        util.SendInternalServerErrorStatus(w, err)
+        return 
+    }
+    fmt.Printf("%s\n", outputJson)
+    fmt.Fprintf(w, "%s", outputJson)
 }
